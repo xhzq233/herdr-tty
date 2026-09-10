@@ -1,6 +1,11 @@
 # HerdrTTY
 
-[![check](https://github.com/dark2momo/herdr-tty/actions/workflows/check.yml/badge.svg)](https://github.com/dark2momo/herdr-tty/actions/workflows/check.yml)
+Fork of [dark2momo/herdr-tty](https://github.com/dark2momo/herdr-tty) with the
+floating input panel from [vibe-webterminal](https://github.com/xhzq233/vibe-webterminal).
+Upstream touch scrolling, selection, authentication, and Herdr session attachment
+are retained. The panel uses native pointer events without extra dependencies.
+
+[![check](https://github.com/xhzq233/herdr-tty/actions/workflows/check.yml/badge.svg)](https://github.com/xhzq233/herdr-tty/actions/workflows/check.yml)
 
 Herdr in your browser: a lightweight, mobile-friendly web terminal for
 [Herdr](https://herdr.dev), powered by
@@ -135,15 +140,20 @@ Options:
 - Long-press and drag selects terminal text; a temporary Copy button writes the
   xterm selection through Clipboard API or an HTTP-compatible copy event. If
   WebKit rejects both, the selected text is presented in a native copy field.
-- Focusing the terminal shows an expandable paste input with stacked Esc and
-  Input controls above the virtual keyboard. Input pastes non-empty text and
-  then sends a terminal return; with empty text, it sends only the return. The
-  virtual keyboard's Return key remains the native way to add a line break.
+- A floating panel provides ↑, ↓, →, scroll-to-bottom, Clear (Ctrl+L), Space,
+  Ctrl+C, and Esc, plus a single-line draft input and Enter button. Draft text
+  stays local until Enter pastes it and sends a terminal return. An empty draft
+  sends only the return. IME confirmation does not submit unfinished text.
+- Drag the panel by its buttons or background; drag near either side to collapse
+  it into an edge tab. Tap the tab to reopen it. The panel follows the visible
+  viewport above the keyboard and does not reserve terminal rows.
+- Space inserts at the draft caret while editing; otherwise it sends a space to
+  the terminal. Other shortcut buttons leave the draft focus intact.
 - Herdr's text-entry dialogs for names and new worktrees automatically focus
   the mobile paste input after the dialog appears.
 - At ttyd's reconnect prompt, tapping anywhere reconnects through ttyd's native
   Enter-key path without clearing the draft. Further taps pause while
-  reconnecting, and a preserved draft still requires Input after the connection
+  reconnecting, and a preserved draft still requires Enter after the connection
   returns.
 - A two-finger tap sends a right mouse click to Herdr.
 - The terminal follows `visualViewport` when a mobile keyboard changes the
@@ -154,7 +164,8 @@ Options:
   `beforeinput`/`input` fallback into ttyd's public xterm instance; ordinary
   text, active composition, desktop keyboards, and Herdr shortcuts keep their
   native paths.
-- The browser context menu is suppressed inside the web app.
+- The browser context menu is suppressed except on the draft input, where native
+  copy and paste remain available.
 - No global `keydown`, `keyup`, or `keypress` handler is installed, so Herdr
   keyboard shortcuts continue through ttyd unchanged. A synthetic Enter key is
   dispatched only to ttyd's hidden input when its reconnect prompt is visible.

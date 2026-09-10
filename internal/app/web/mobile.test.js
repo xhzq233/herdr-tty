@@ -250,7 +250,7 @@ function loadTouchMobile({
       },
       focus() {
         document.activeElement = element;
-        if (element.tagName === "TEXTAREA" && !element.readOnly) keyboardFocuses += 1;
+        if (["INPUT", "TEXTAREA"].includes(element.tagName) && !element.readOnly) keyboardFocuses += 1;
       },
       select() {
         selectedControl = element;
@@ -454,9 +454,7 @@ function loadTouchMobile({
       dispatchDocument("focusin", { target: helper });
     },
     focusPasteInput() {
-      const input = toolbar.children.find(
-        (child) => child.className === "herdr-tty-paste-input",
-      );
+      const input = toolbar.querySelector(".herdr-tty-paste-input");
       input.focus();
       dispatchDocument("focusin", { target: input });
     },
@@ -507,18 +505,20 @@ function loadTouchMobile({
       for (const listener of writeParsedListeners) listener();
     },
     get pasteInputFocused() {
-      return document.activeElement === toolbar.children.find(
-        (child) => child.className === "herdr-tty-paste-input",
-      );
+      return document.activeElement === toolbar.querySelector(".herdr-tty-paste-input");
     },
     toolbarButton(name) {
-      const actions = toolbar.children.find(
-        (child) => child.className === "herdr-tty-toolbar-actions",
-      );
-      return actions.children.find((button) => button.dataset.action === name);
+      function find(node) {
+        if (node.dataset.action === name) return node;
+        for (const child of node.children) {
+          const button = find(child);
+          if (button) return button;
+        }
+      }
+      return find(toolbar);
     },
     get pasteInput() {
-      return toolbar.children.find((child) => child.className === "herdr-tty-paste-input");
+      return toolbar.querySelector(".herdr-tty-paste-input");
     },
     rootHasClass(name) {
       return rootClasses.has(name);
@@ -570,11 +570,11 @@ function loadTouchMobile({
 }
 
 test("copy button writes the xterm selection on LAN HTTP", async () => {
-  const runtime = loadTouchMobile({ selection: "first line\nsecond line" });
+  const runtime = loadTouchMobile({ selection: "draft command" });
 
   await runtime.click(runtime.copyButton);
 
-  assert.equal(runtime.copiedText, "first line\nsecond line");
+  assert.equal(runtime.copiedText, "draft command");
   assert.equal(runtime.copyButton.hidden, true);
   assert.equal(runtime.copyButton.disabled, false);
 });
@@ -617,23 +617,23 @@ test("terminal taps stay guarded through the compatibility mousedown", () => {
   assert.equal(runtime.terminalInputReadOnly, false);
 });
 
-test("terminal taps reveal the composer and only its input opens the keyboard", () => {
+test("floating composer stays visible and only its input opens the keyboard", () => {
   const runtime = loadTouchMobile({ deferTimers: true });
   const touch = { clientX: 120, clientY: 80 };
   const fitsBeforeTap = runtime.terminalFits;
 
-  assert.equal(runtime.toolbar.hidden, true);
+  assert.equal(runtime.toolbar.hidden, false);
   runtime.touchTerminal("touchstart", [touch]);
-  assert.equal(runtime.toolbar.hidden, true);
+  assert.equal(runtime.toolbar.hidden, false);
   assert.equal(runtime.terminalFits, fitsBeforeTap);
   runtime.touchTerminal("touchend", [], [touch]);
   runtime.mouseDownTerminal();
-  assert.equal(runtime.toolbar.hidden, true);
+  assert.equal(runtime.toolbar.hidden, false);
   assert.equal(runtime.terminalFits, fitsBeforeTap);
 
   runtime.touchTerminal("click", []);
   assert.equal(runtime.toolbar.hidden, false);
-  assert.ok(runtime.terminalFits > fitsBeforeTap);
+  assert.equal(runtime.terminalFits, fitsBeforeTap);
   assert.equal(runtime.keyboardFocuses, 0);
 
   runtime.focusPasteInput();
@@ -701,37 +701,18 @@ test("ordinary terminal text does not trigger Herdr dialog focus", () => {
   assert.equal(runtime.keyboardFocuses, 0);
 });
 
-test("showing the input toolbar directly refits the terminal", () => {
-  const runtime = loadTouchMobile();
-  const fitsBeforeFocus = runtime.terminalFits;
-
-  runtime.focusTerminal();
-
-  assert.equal(runtime.rootHasClass("herdr-tty-toolbar-visible"), true);
-  assert.ok(runtime.terminalFits > fitsBeforeFocus);
-});
-
 test("toolbar Input pastes input text and sends return when empty", async () => {
   const runtime = loadTouchMobile();
 
   runtime.focusTerminal();
 
   assert.equal(runtime.toolbar.hidden, false);
-  assert.equal(runtime.rootHasClass("herdr-tty-toolbar-visible"), true);
   runtime.focusPasteInput();
   assert.equal(runtime.toolbar.hidden, false);
   assert.equal(runtime.toolbarButton("escape").textContent, "Esc");
-  assert.equal(runtime.toolbarButton("input").textContent, "Input");
-  assert.equal(runtime.pasteInput.getAttribute("enterkeyhint"), "enter");
-  assert.equal(runtime.pasteInput.style.height, "72px");
-  assert.equal(runtime.rootStyle("--herdr-tty-toolbar-height"), "80px");
   await runtime.click(runtime.toolbarButton("escape"));
-  runtime.pasteInput.value = "first line\nsecond line";
-  runtime.pasteInput.scrollHeight = 160;
+  runtime.pasteInput.value = "draft command";
   runtime.trigger(runtime.pasteInput, "input");
-  assert.equal(runtime.pasteInput.style.height, "128px");
-  assert.equal(runtime.pasteInput.style.overflowY, "auto");
-  assert.equal(runtime.rootStyle("--herdr-tty-toolbar-height"), "136px");
   await runtime.click(runtime.toolbarButton("input"));
   assert.equal(runtime.pasteInput.value, "");
   await runtime.click(runtime.toolbarButton("input"));
@@ -740,10 +721,10 @@ test("toolbar Input pastes input text and sends return when empty", async () => 
     { data: "\r", wasUserInput: true },
     { data: "\r", wasUserInput: true },
   ]);
-  assert.deepEqual(runtime.terminalPastes, ["first line\nsecond line"]);
+  assert.deepEqual(runtime.terminalPastes, ["draft command"]);
   assert.deepEqual(runtime.terminalEvents, [
     { data: "\x1b", type: "input" },
-    { data: "first line\nsecond line", type: "paste" },
+    { data: "draft command", type: "paste" },
     { data: "\r", type: "input" },
     { data: "\r", type: "input" },
   ]);
@@ -779,7 +760,6 @@ test("reconnect input dispatches ttyd Enter and preserves the draft", async () =
   runtime.setConnectionOverlay("Reconnected");
   assert.equal(escape.disabled, false);
   assert.equal(input.disabled, false);
-  assert.equal(input.textContent, "Input");
 
   await runtime.click(input);
   assert.equal(runtime.pasteInput.value, "");
@@ -828,24 +808,6 @@ test("reconnecting disables terminal actions without disabling draft editing", a
   await runtime.click(runtime.toolbarButton("input"));
   assert.equal(runtime.pasteInput.value, "editable draft");
   assert.deepEqual(runtime.terminalEvents, []);
-});
-
-test("paste input shrinks after multiline content is removed", () => {
-  const runtime = loadTouchMobile();
-
-  runtime.focusTerminal();
-  runtime.pasteInput.value = "one\ntwo\nthree\nfour";
-  runtime.pasteInput.scrollHeight = 112;
-  runtime.trigger(runtime.pasteInput, "input");
-  assert.equal(runtime.pasteInput.style.height, "112px");
-  assert.equal(runtime.rootStyle("--herdr-tty-toolbar-height"), "120px");
-
-  runtime.pasteInput.value = "one";
-  runtime.pasteInput.scrollHeight = 36;
-  runtime.trigger(runtime.pasteInput, "input");
-  assert.equal(runtime.pasteInput.style.height, "72px");
-  assert.equal(runtime.pasteInput.style.overflowY, "hidden");
-  assert.equal(runtime.rootStyle("--herdr-tty-toolbar-height"), "80px");
 });
 
 test("context menu is allowed only on the paste input", () => {

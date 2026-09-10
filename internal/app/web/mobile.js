@@ -245,27 +245,22 @@
     return legacyCopyText(text) || offerManualCopy(text);
   }
 
-  function sendTerminalInput(data) {
-    if (!data || typeof window.term?.input !== "function") return;
-    window.term.input(data, true);
-    window.term.focus?.();
-  }
-
-  function pasteTerminalText(text) {
-    if (typeof window.term?.paste === "function") {
-      window.term.paste(text);
-      window.term.focus?.();
-      return;
-    }
-    sendTerminalInput(text);
-  }
-
   function createInputToolbar(terminal) {
     const toolbar = document.createElement("div");
     toolbar.className = "herdr-tty-input-toolbar";
-    toolbar.hidden = true;
+    toolbar.hidden = false;
+    toolbar.id = "touch-toolbar";
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", "Terminal input controls");
+
+    let suppressClickUntil = 0;
+    let composing = false;
+    let compositionEndedAt = -Infinity;
+    const content = document.createElement("div");
+    content.id = "panel-content";
+    toolbar.appendChild(content);
+    const composer = document.createElement("div");
+    composer.id = "panel-composer";
 
     const reconnectIcon =
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5"/><path d="M19 11a8 8 0 1 0 .4 5"/></svg>';
@@ -276,52 +271,43 @@
       button.dataset.action = name;
       button.addEventListener("pointerdown", (event) => {
         event.preventDefault();
-        event.stopPropagation();
       });
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        void action();
+        if (performance.now() >= suppressClickUntil) void action();
       });
       parent.appendChild(button);
       return button;
     }
 
-    const pasteInput = document.createElement("textarea");
+    const pasteInput = document.createElement("input");
+    pasteInput.type = "text";
+    pasteInput.id = "panel-input";
     pasteInput.className = "herdr-tty-paste-input";
-    pasteInput.rows = 1;
-    pasteInput.placeholder = "Paste or type";
-    pasteInput.setAttribute("aria-label", "Text to paste into terminal");
-    pasteInput.setAttribute("enterkeyhint", "enter");
-    toolbar.appendChild(pasteInput);
-
-    const inputMinHeight = 72;
-    const inputMaxHeight = 128;
-    const toolbarPaddingHeight = 8;
-    let toolbarFitFrame = 0;
-
-    function resizePasteInput() {
-      pasteInput.style.height = `${inputMinHeight}px`;
-      pasteInput.style.overflowY = "hidden";
-      const contentHeight = Number(pasteInput.scrollHeight) || inputMinHeight;
-      const inputHeight = Math.min(inputMaxHeight, Math.max(inputMinHeight, contentHeight));
-      pasteInput.style.height = `${inputHeight}px`;
-      pasteInput.style.overflowY = contentHeight > inputMaxHeight ? "auto" : "hidden";
-      root.style.setProperty(
-        "--herdr-tty-toolbar-height",
-        `${inputHeight + toolbarPaddingHeight}px`,
-      );
-      if (toolbar.hidden) return;
-      if (toolbarFitFrame) cancelAnimationFrame(toolbarFitFrame);
-      toolbarFitFrame = requestAnimationFrame(() => {
-        toolbarFitFrame = 0;
-        notifyTerminalResize();
-      });
-    }
-
-    pasteInput.addEventListener("input", resizePasteInput);
+    pasteInput.placeholder = "输入…";
+    pasteInput.setAttribute("aria-label", "Draft input");
+    pasteInput.setAttribute("enterkeyhint", "send");
+    pasteInput.setAttribute("autocomplete", "off");
+    pasteInput.setAttribute("autocapitalize", "off");
+    pasteInput.setAttribute("autocorrect", "off");
+    pasteInput.setAttribute("spellcheck", "false");
+    composer.appendChild(pasteInput);
+    pasteInput.addEventListener("compositionstart", () => { composing = true; });
+    pasteInput.addEventListener("compositionend", () => {
+      composing = false;
+      compositionEndedAt = performance.now();
+    });
+    pasteInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.isComposing || event.keyCode === 229 || composing) return;
+      event.preventDefault();
+      // Safari may deliver the IME-confirming Enter just after compositionend.
+      if (performance.now() - compositionEndedAt < 80) return;
+      submitPasteInput();
+    });
 
     function submitPasteInput() {
+      if (composing || performance.now() < suppressClickUntil) return;
       const state = updateConnectionState();
       if (state === "reconnect-required") {
         reconnectTerminal();
@@ -330,27 +316,127 @@
       if (state !== "connected") return;
       if (pasteInput.value !== "") {
         const text = pasteInput.value;
-        pasteTerminalText(text);
-        sendTerminalInput("\r");
+        window.term.paste(text);
+        window.term.input("\r", true);
         pasteInput.value = "";
-        resizePasteInput();
         return;
       }
-      sendTerminalInput("\r");
+      window.term.input("\r", true);
     }
 
     const actions = document.createElement("div");
     actions.className = "herdr-tty-toolbar-actions";
+    actions.id = "panel-actions";
+    const arrow = (direction) => window.term.input(
+      "\x1b" + (window.term.modes.applicationCursorKeysMode ? "O" : "[") + direction, true,
+    );
+    const shortcuts = [
+      ["up", "↑", "Arrow Up", () => arrow("A")],
+      ["down", "↓", "Arrow Down", () => arrow("B")],
+      ["right", "→", "Arrow Right", () => arrow("C")],
+      ["bottom", "⤓", "Scroll to bottom", () => window.term.scrollToBottom()],
+      ["clear", "Clear", "Clear", () => window.term.input("\x0c", true)],
+      ["space", "Space", "Space", () => {
+        if (document.activeElement === pasteInput) {
+          pasteInput.setRangeText(" ", pasteInput.selectionStart, pasteInput.selectionEnd, "end");
+        } else window.term.input(" ", true);
+      }],
+      ["interrupt", "Ctrl+C", "Ctrl+C", () => window.term.input("\x03", true)],
+    ];
+    const shortcutButtons = shortcuts.map(([name, label, title, action]) => {
+      const button = appendButton(actions, () => {
+        if (updateConnectionState() === "connected") action();
+      }, name);
+      button.id = `${name}-button`;
+      button.textContent = label;
+      button.setAttribute("aria-label", title);
+      return button;
+    });
     const escapeButton = appendButton(
       actions,
       () => {
-        if (updateConnectionState() === "connected") sendTerminalInput("\x1b");
+        if (updateConnectionState() === "connected") window.term.input("\x1b", true);
       },
       "escape",
     );
-    const inputButton = appendButton(actions, submitPasteInput, "input");
-    toolbar.appendChild(actions);
+    const inputButton = appendButton(composer, submitPasteInput, "input");
+    inputButton.id = "enter-button";
+    content.appendChild(actions);
+    content.appendChild(composer);
+    const edgeTab = appendButton(toolbar, () => setDock(null), "expand");
+    edgeTab.id = "edge-tab";
+    edgeTab.setAttribute("aria-label", "Expand panel");
+    edgeTab.setAttribute("aria-controls", "panel-content");
     document.body.appendChild(toolbar);
+
+    let x, y, dockSide = null, drag = null;
+    function viewBounds() {
+      return {
+        left: viewport?.offsetLeft ?? 0, top: viewport?.offsetTop ?? 0,
+        width: viewport?.width ?? window.innerWidth,
+        height: viewport?.height ?? window.innerHeight,
+      };
+    }
+    function placePanel() {
+      const view = viewBounds();
+      const right = view.left + view.width - toolbar.offsetWidth;
+      const bottom = view.top + view.height - toolbar.offsetHeight - 12;
+      x = dockSide === "left" ? view.left : dockSide === "right" ? right
+        : Math.max(view.left, Math.min(x ?? right - 12, right));
+      y = Math.max(view.top + 12, Math.min(y ?? bottom, bottom));
+      toolbar.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    }
+    function setDock(side) {
+      dockSide = side;
+      toolbar.dataset.side = side || "";
+      edgeTab.textContent = side === "left" ? "›" : "‹";
+      edgeTab.setAttribute("aria-expanded", String(!side));
+      placePanel();
+    }
+    toolbar.addEventListener("pointerdown", (event) => {
+      if (event.target === pasteInput || event.button !== 0) return;
+      event.preventDefault();
+      drag = { id: event.pointerId, startX: event.clientX, startY: event.clientY,
+        x, y, moved: false };
+    });
+    toolbar.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.id) return;
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        toolbar.setPointerCapture(event.pointerId);
+        suppressClickUntil = Infinity;
+      }
+      x = drag.x + dx;
+      y = drag.y + dy;
+      dockSide = null;
+      placePanel();
+    });
+    function finishDrag(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      if (drag.moved) {
+        suppressClickUntil = performance.now() + 300;
+        const view = viewBounds();
+        const leftGap = x - view.left;
+        const rightGap = view.left + view.width - x - toolbar.offsetWidth;
+        setDock(Math.min(leftGap, rightGap) <= 24
+          ? (leftGap < rightGap ? "left" : "right") : null);
+      }
+      drag = null;
+    }
+    toolbar.addEventListener("pointerup", finishDrag);
+    toolbar.addEventListener("pointercancel", finishDrag);
+    toolbar.addEventListener("lostpointercapture", (event) => {
+      // Touch starts with implicit capture on the button. Moving capture to
+      // the toolbar must not end the drag when that button releases it.
+      if (event.target === toolbar) finishDrag(event);
+    });
+    viewport?.addEventListener("resize", placePanel, { passive: true });
+    viewport?.addEventListener("scroll", placePanel, { passive: true });
+    window.addEventListener("resize", placePanel, { passive: true });
+    setDock(null);
 
     let connectionState = "connected";
 
@@ -371,7 +457,7 @@
     function renderConnectionState(state) {
       connectionState = state;
       toolbar.dataset.connectionState = state;
-      escapeButton.disabled = state !== "connected";
+      for (const button of [...shortcutButtons, escapeButton]) button.disabled = state !== "connected";
       inputButton.disabled = state === "reconnecting";
 
       escapeButton.innerHTML = "";
@@ -390,10 +476,11 @@
         );
       } else {
         inputButton.innerHTML = "";
-        inputButton.textContent = "Input";
-        inputButton.setAttribute("aria-label", "Input text");
-        inputButton.setAttribute("title", "Input");
+        inputButton.textContent = "Enter ↵";
+        inputButton.setAttribute("aria-label", "Enter");
+        inputButton.setAttribute("title", "Enter");
       }
+      placePanel();
     }
 
     function updateConnectionState() {
@@ -437,14 +524,9 @@
       childList: true,
       subtree: true,
     });
-    resizePasteInput();
 
     function setVisible(visible) {
-      if (toolbar.hidden === !visible) return;
-      toolbar.hidden = !visible;
-      root.classList.toggle("herdr-tty-toolbar-visible", visible);
-      notifyTerminalResize();
-      scheduleViewportUpdate();
+      if (visible) setDock(null);
     }
 
     function herdrTextDialogVisible() {
@@ -505,32 +587,6 @@
     }
     window.setTimeout(focusComposerForHerdrDialog, 0);
 
-    document.addEventListener("focusin", (event) => {
-      if (toolbar.contains(event.target)) {
-        setVisible(true);
-        return;
-      }
-      if (
-        event.target?.classList?.contains("xterm-helper-textarea") &&
-        terminal.contains(event.target)
-      ) {
-        setVisible(true);
-      }
-    });
-    document.addEventListener("focusout", () => {
-      window.setTimeout(() => {
-        const active = document.activeElement;
-        setVisible(
-          toolbar.contains(active) ||
-            (!!active?.classList?.contains("xterm-helper-textarea") &&
-              terminal.contains(active)),
-        );
-      }, 0);
-    });
-    const active = document.activeElement;
-    if (active?.classList?.contains("xterm-helper-textarea") && terminal.contains(active)) {
-      setVisible(true);
-    }
     return { show: () => setVisible(true) };
   }
 
@@ -651,8 +707,7 @@
 
     terminal.addEventListener("click", (event) => {
       if (event.target === copyButton) return;
-      // Let xterm forward the complete compatibility mouse click against the
-      // current grid before showing the toolbar and resizing the PTY.
+      // A terminal tap can bring the docked input panel back into view.
       inputToolbar.show();
     });
 
