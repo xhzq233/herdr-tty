@@ -5,25 +5,6 @@
   const isIOS =
     /\b(iPad|iPhone|iPod)\b/.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  let viewportFrame = 0;
-  function fitVisibleViewport() {
-    const root = document.documentElement;
-    root.style.setProperty("--herdr-tty-viewport-height", `${Math.ceil(viewport?.height ?? window.innerHeight)}px`);
-    root.style.setProperty("--herdr-tty-viewport-width", `${Math.ceil(viewport?.width ?? window.innerWidth)}px`);
-    root.style.setProperty("--herdr-tty-viewport-top", `${Math.round(viewport?.offsetTop ?? 0)}px`);
-    root.style.setProperty("--herdr-tty-viewport-left", `${Math.round(viewport?.offsetLeft ?? 0)}px`);
-    window.term?.fit?.();
-  }
-  function scheduleViewportFit() {
-    cancelAnimationFrame(viewportFrame);
-    viewportFrame = requestAnimationFrame(fitVisibleViewport);
-  }
-  viewport?.addEventListener("resize", scheduleViewportFit, { passive: true });
-  viewport?.addEventListener("scroll", scheduleViewportFit, { passive: true });
-  window.addEventListener("resize", scheduleViewportFit, { passive: true });
-  window.addEventListener("orientationchange", scheduleViewportFit, { passive: true });
-  fitVisibleViewport();
-
   let pendingIOSPunctuation = null;
 
   function isIOSVirtualPunctuation(event) {
@@ -188,7 +169,6 @@
 
     let suppressClickUntil = 0;
     let composing = false;
-    let compositionEndedAt = -Infinity;
     const content = document.createElement("div");
     content.id = "panel-content";
     toolbar.appendChild(content);
@@ -214,13 +194,13 @@
       return button;
     }
 
-    const pasteInput = document.createElement("input");
-    pasteInput.type = "text";
+    const pasteInput = document.createElement("textarea");
+    pasteInput.rows = 2;
     pasteInput.id = "panel-input";
     pasteInput.className = "herdr-tty-paste-input";
     pasteInput.placeholder = "输入…";
     pasteInput.setAttribute("aria-label", "Draft input");
-    pasteInput.setAttribute("enterkeyhint", "send");
+    pasteInput.setAttribute("enterkeyhint", "enter");
     pasteInput.setAttribute("autocomplete", "off");
     pasteInput.setAttribute("autocapitalize", "off");
     pasteInput.setAttribute("autocorrect", "off");
@@ -235,17 +215,7 @@
       try { window.sessionStorage.setItem(draftStorageKey, pasteInput.value); } catch { /* Keep the in-page draft. */ }
     }
     pasteInput.addEventListener("compositionstart", () => { composing = true; });
-    pasteInput.addEventListener("compositionend", () => {
-      composing = false;
-      compositionEndedAt = performance.now();
-    });
-    pasteInput.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" || event.isComposing || event.keyCode === 229 || composing) return;
-      event.preventDefault();
-      // Safari may deliver the IME-confirming Enter just after compositionend.
-      if (performance.now() - compositionEndedAt < 80) return;
-      submitPasteInput();
-    });
+    pasteInput.addEventListener("compositionend", () => { composing = false; });
 
     function submitPasteInput() {
       if (composing || performance.now() < suppressClickUntil) return;
@@ -458,9 +428,9 @@
         );
       } else {
         inputButton.innerHTML = "";
-        inputButton.textContent = "Enter ↵";
-        inputButton.setAttribute("aria-label", "Enter");
-        inputButton.setAttribute("title", "Enter");
+        inputButton.textContent = "Send ↗";
+        inputButton.setAttribute("aria-label", "Send");
+        inputButton.setAttribute("title", "Send");
       }
       placePanel();
     }

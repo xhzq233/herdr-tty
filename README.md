@@ -146,8 +146,8 @@ same service. Removing it and restarting invalidates existing login cookies.
   xterm selection through Clipboard API or an HTTP-compatible copy event. If
   WebKit rejects both, the selected text is presented in a native copy field.
 - A floating panel provides ↑, ↓, →, scroll-to-bottom, Clear (Ctrl+L), Space,
-  Ctrl+C, and Esc, plus a single-line draft input and Enter button. Draft text
-  stays local until Enter pastes it and sends a terminal return. An empty draft
+  Ctrl+C, and Esc, plus a multiline draft input and Send button. Keyboard Enter
+  inserts a newline; text stays local until Send pastes it and sends a terminal return. An empty draft
   sends only the return. IME confirmation does not submit unfinished text.
 - Drag the panel by its buttons or background; drag near either side to collapse
   it into an edge tab. Tap the tab to reopen it. The panel follows the visible
@@ -162,10 +162,12 @@ same service. Removing it and restarting invalidates existing login cookies.
   the page with the draft preserved. Expired login opens the login page and
   restores the draft afterward; drafts are never submitted automatically.
 - A two-finger tap sends a right mouse click to Herdr.
-- The terminal fills the visible browser viewport, including above an open
-  keyboard. Keyboard, orientation, and window size changes refit the terminal.
-  The page does not scroll or pan; all terminal drag movement goes to Herdr's
-  wheel handling. The floating panel stays inside the visible viewport.
+- The terminal fills the full browser layout using `100lvh`, with a fixed
+  position and no keyboard-driven resize or pan. The keyboard overlays the
+  bottom instead of reflowing the terminal. Only the floating panel follows
+  the visible viewport. All terminal drag movement goes to Herdr's wheel
+  handling; the page itself does not scroll. Actual window resizing and device
+  rotation still refit the terminal.
 - iOS virtual Chinese keyboards forward punctuation through a narrow
   `beforeinput`/`input` fallback into ttyd's public xterm instance; ordinary
   text, active composition, desktop keyboards, and Herdr shortcuts keep their
