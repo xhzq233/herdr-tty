@@ -259,7 +259,7 @@
       ["up", "↑", "Arrow Up", () => arrow("A")],
       ["down", "↓", "Arrow Down", () => arrow("B")],
       ["right", "→", "Arrow Right", () => arrow("C")],
-      ["bottom", "⤓", "Scroll to bottom", () => window.term.scrollToBottom()],
+      ["bottom", "End", "End", () => window.term.scrollToBottom()],
       ["clear", "Clear", "Clear", () => window.term.input("\x0c", true)],
       ["space", "Space", "Space", () => {
         if (document.activeElement === pasteInput) {

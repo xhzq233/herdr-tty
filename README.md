@@ -145,7 +145,7 @@ same service. Removing it and restarting invalidates existing login cookies.
 - Long-press and drag selects terminal text; a temporary Copy button writes the
   xterm selection through Clipboard API or an HTTP-compatible copy event. If
   WebKit rejects both, the selected text is presented in a native copy field.
-- A floating panel provides ↑, ↓, →, scroll-to-bottom, Clear (Ctrl+L), Space,
+- A floating panel provides ↑, ↓, →, End (scroll to bottom), Clear (Ctrl+L), Space,
   Ctrl+C, and Esc, plus a multiline draft input with separate Send and Enter
   buttons. Keyboard Enter inserts a newline in the draft. Send pastes the draft
   into the terminal and clears it, without sending a return. Panel Enter sends
@@ -207,3 +207,17 @@ stage.
 ## License
 
 MIT
+
+### Terminal layout without a sidebar
+
+Herdr can hide its sidebar while keeping top tabs. In `~/.config/herdr/config.toml`:
+
+```toml
+[ui]
+sidebar_start_collapsed = true
+sidebar_collapsed_mode = "hidden"
+hide_tab_bar_when_single_tab = false
+tab_bar_position = "top"
+```
+
+Reload Herdr config and reconnect the web terminal to apply the startup layout.

@@ -100,7 +100,7 @@
   color: #f3f4f6;
   resize: none;
   overflow-y: auto;
-  font: 16px/22px -apple-system, BlinkMacSystemFont, sans-serif;
+  font: 14px/20px -apple-system, BlinkMacSystemFont, sans-serif;
   user-select: text;
   -webkit-user-select: text;
   touch-action: auto;
@@ -123,7 +123,7 @@
   border-radius: 10px;
   background: transparent;
   color: #e5e7eb;
-  font: 500 14px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 12px ui-monospace, SFMono-Regular, Menlo, monospace;
   touch-action: none;
   cursor: pointer;
 }
