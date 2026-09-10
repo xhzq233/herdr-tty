@@ -156,10 +156,12 @@ Options:
   reconnecting, and a preserved draft still requires Enter after the connection
   returns.
 - A two-finger tap sends a right mouse click to Herdr.
-- The terminal follows `visualViewport` when a mobile keyboard changes the
-  visible area, including iOS viewport offsets.
-- On iPad Chrome, a small stale focus inset is ignored after the keyboard
-  closes, while an open keyboard still resizes the terminal above it.
+- Opening the keyboard leaves the terminal grid and position unchanged. The
+  terminal uses the large viewport height (`100lvh`); the keyboard overlays its
+  bottom portion. Scroll the terminal manually to inspect content. Only the
+  floating panel follows `visualViewport` to remain above the keyboard.
+- Rotating the device or resizing the browser still fits the terminal to the
+  new screen dimensions.
 - iOS virtual Chinese keyboards forward punctuation through a narrow
   `beforeinput`/`input` fallback into ttyd's public xterm instance; ordinary
   text, active composition, desktop keyboards, and Herdr shortcuts keep their

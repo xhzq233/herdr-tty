@@ -1,96 +1,10 @@
 (() => {
   "use strict";
 
-  const root = document.documentElement;
   const viewport = window.visualViewport;
   const isIOS =
     /\b(iPad|iPhone|iPod)\b/.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isIPad =
-    /\biPad\b/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isIPadChrome = /\bCriOS\//.test(navigator.userAgent) && isIPad;
-  let lastViewportMetrics = "";
-  let viewportFrame = 0;
-  let viewportTimers = [];
-  let dispatchingResize = false;
-
-  function notifyTerminalResize() {
-    if (
-      document.querySelector(".xterm") &&
-      typeof window.term?.fit === "function"
-    ) {
-      window.term.fit();
-      return;
-    }
-    dispatchingResize = true;
-    window.dispatchEvent(new Event("resize"));
-    dispatchingResize = false;
-  }
-
-  function updateViewport(forceFit = false) {
-    const layoutHeight = window.innerHeight;
-    const visualHeight = viewport ? viewport.height : layoutHeight;
-    // Ignore iPad Chrome's small stale focus inset after the keyboard closes,
-    // while retaining the smaller visual viewport when a keyboard is visible.
-    const useLayoutViewport =
-      !viewport ||
-      (isIPadChrome &&
-        layoutHeight > visualHeight &&
-        layoutHeight - visualHeight < layoutHeight / 4);
-    const height = Math.ceil(useLayoutViewport ? layoutHeight : visualHeight);
-    const width = Math.ceil(useLayoutViewport || !viewport ? window.innerWidth : viewport.width);
-    const top = Math.round(
-      viewport && !useLayoutViewport
-        ? Math.max(viewport.offsetTop, viewport.pageTop - window.scrollY, 0)
-        : 0,
-    );
-    const left = Math.round(
-      viewport && !useLayoutViewport
-        ? Math.max(viewport.offsetLeft, viewport.pageLeft - window.scrollX, 0)
-        : 0,
-    );
-    const metrics = `${width}:${height}:${left}:${top}`;
-    if (metrics !== lastViewportMetrics) {
-      lastViewportMetrics = metrics;
-      root.style.setProperty("--herdr-tty-viewport-height", `${height}px`);
-      root.style.setProperty("--herdr-tty-viewport-width", `${width}px`);
-      root.style.setProperty("--herdr-tty-viewport-top", `${top}px`);
-      root.style.setProperty("--herdr-tty-viewport-left", `${left}px`);
-      forceFit = true;
-    }
-    if (forceFit) notifyTerminalResize();
-  }
-
-  function scheduleViewportUpdate() {
-    if (viewportFrame) cancelAnimationFrame(viewportFrame);
-    viewportFrame = requestAnimationFrame(() => {
-      viewportFrame = 0;
-      updateViewport(true);
-    });
-    for (const timer of viewportTimers) clearTimeout(timer);
-    viewportTimers = [80, 250, 500].map((delay) =>
-      window.setTimeout(() => updateViewport(true), delay),
-    );
-  }
-
-  if (viewport) {
-    viewport.addEventListener("resize", scheduleViewportUpdate, { passive: true });
-    viewport.addEventListener("scroll", scheduleViewportUpdate, { passive: true });
-    viewport.addEventListener("scrollend", scheduleViewportUpdate, { passive: true });
-  }
-  window.addEventListener(
-    "resize",
-    () => {
-      if (!dispatchingResize) scheduleViewportUpdate();
-    },
-    { passive: true },
-  );
-  window.addEventListener("orientationchange", scheduleViewportUpdate, { passive: true });
-  document.addEventListener("focusin", scheduleViewportUpdate, { passive: true });
-  document.addEventListener("focusout", scheduleViewportUpdate, { passive: true });
-  updateViewport(true);
-
   let pendingIOSPunctuation = null;
 
   function isIOSVirtualPunctuation(event) {
@@ -593,7 +507,11 @@
   function attachTouchControls(terminal) {
     if (terminal.dataset.herdrWebTouch === "ready") return;
     terminal.dataset.herdrWebTouch = "ready";
-    scheduleViewportUpdate();
+    // ttyd applies its font preferences after opening the terminal. Settle the
+    // initial grid once; keyboard and focus events never trigger this fitting.
+    for (const delay of [80, 250, 500]) {
+      window.setTimeout(() => window.term?.fit?.(), delay);
+    }
 
     const copyButton = document.createElement("button");
     copyButton.type = "button";
