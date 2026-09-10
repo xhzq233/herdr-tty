@@ -188,7 +188,6 @@
 
     let suppressClickUntil = 0;
     let composing = false;
-    let compositionEndedAt = -Infinity;
     const content = document.createElement("div");
     content.id = "panel-content";
     toolbar.appendChild(content);
@@ -214,13 +213,13 @@
       return button;
     }
 
-    const pasteInput = document.createElement("input");
-    pasteInput.type = "text";
+    const pasteInput = document.createElement("textarea");
+    pasteInput.rows = 3;
     pasteInput.id = "panel-input";
     pasteInput.className = "herdr-tty-paste-input";
     pasteInput.placeholder = "输入…";
     pasteInput.setAttribute("aria-label", "Draft input");
-    pasteInput.setAttribute("enterkeyhint", "send");
+    pasteInput.setAttribute("enterkeyhint", "enter");
     pasteInput.setAttribute("autocomplete", "off");
     pasteInput.setAttribute("autocapitalize", "off");
     pasteInput.setAttribute("autocorrect", "off");
@@ -235,34 +234,19 @@
       try { window.sessionStorage.setItem(draftStorageKey, pasteInput.value); } catch { /* Keep the in-page draft. */ }
     }
     pasteInput.addEventListener("compositionstart", () => { composing = true; });
-    pasteInput.addEventListener("compositionend", () => {
-      composing = false;
-      compositionEndedAt = performance.now();
-    });
-    pasteInput.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" || event.isComposing || event.keyCode === 229 || composing) return;
-      event.preventDefault();
-      // Safari may deliver the IME-confirming Enter just after compositionend.
-      if (performance.now() - compositionEndedAt < 80) return;
-      submitPasteInput();
-    });
+    pasteInput.addEventListener("compositionend", () => { composing = false; });
 
-    function submitPasteInput() {
-      if (composing || performance.now() < suppressClickUntil) return;
+    function sendDraft() {
+      if (composing || updateConnectionState() !== "connected" || pasteInput.value === "") return;
+      window.term.paste(pasteInput.value);
+      pasteInput.value = "";
+    }
+
+    function pressEnter() {
+      if (composing) return;
       const state = updateConnectionState();
-      if (state === "reconnect-required") {
-        reconnectTerminal();
-        return;
-      }
-      if (state !== "connected") return;
-      if (pasteInput.value !== "") {
-        const text = pasteInput.value;
-        window.term.paste(text);
-        window.term.input("\r", true);
-        pasteInput.value = "";
-        return;
-      }
-      window.term.input("\r", true);
+      if (state === "reconnect-required") reconnectTerminal();
+      else if (state === "connected") window.term.input("\r", true);
     }
 
     const actions = document.createElement("div");
@@ -300,8 +284,16 @@
       },
       "escape",
     );
-    const inputButton = appendButton(composer, submitPasteInput, "input");
+    const submitActions = document.createElement("div");
+    submitActions.id = "panel-submit-actions";
+    const sendButton = appendButton(submitActions, sendDraft, "send");
+    sendButton.id = "send-button";
+    sendButton.textContent = "Send";
+    sendButton.setAttribute("aria-label", "Send");
+    sendButton.setAttribute("title", "Paste draft without pressing Enter");
+    const inputButton = appendButton(submitActions, pressEnter, "input");
     inputButton.id = "enter-button";
+    composer.appendChild(submitActions);
     content.appendChild(actions);
     content.appendChild(composer);
     const edgeTab = appendButton(toolbar, () => setDock(null), "expand");
@@ -439,7 +431,7 @@
       connectionState = state;
       scheduleReconnect();
       toolbar.dataset.connectionState = state;
-      for (const button of [...shortcutButtons, escapeButton]) button.disabled = state !== "connected";
+      for (const button of [...shortcutButtons, escapeButton, sendButton]) button.disabled = state !== "connected";
       inputButton.disabled = state === "reconnecting";
 
       escapeButton.innerHTML = "";

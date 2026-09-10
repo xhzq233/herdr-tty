@@ -91,18 +91,21 @@
   flex: 1;
   width: 0;
   min-width: 0;
-  height: 44px;
+  height: 92px;
   box-sizing: border-box;
-  padding: 0 12px;
+  padding: 10px 12px;
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 10px;
   background: rgba(0,0,0,.25);
   color: #f3f4f6;
-  font: 16px -apple-system, BlinkMacSystemFont, sans-serif;
+  resize: none;
+  overflow-y: auto;
+  font: 16px/22px -apple-system, BlinkMacSystemFont, sans-serif;
   user-select: text;
   -webkit-user-select: text;
   touch-action: auto;
 }
+#panel-submit-actions { display: flex; flex-direction: column; gap: 4px; }
 #panel-input:focus { outline: none; border-color: #8ab4f8; }
 #panel-input::placeholder { color: #9298a3; }
 #enter-button { background: rgba(138,180,248,.15) !important; }
