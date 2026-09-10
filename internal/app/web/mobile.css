@@ -130,3 +130,5 @@
 #touch-toolbar svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; }
 
 #panel-actions button { min-width: 0; height: 36px; padding: 0 4px; background: rgba(255,255,255,.04); }
+
+#panel-submit-actions button { padding: 0; white-space: nowrap; }
