@@ -6,23 +6,22 @@
     /\b(iPad|iPhone|iPod)\b/.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   let viewportFrame = 0;
-  function fitVisibleViewport() {
+  function updateVisibleViewport() {
     const root = document.documentElement;
     root.style.setProperty("--herdr-tty-viewport-height", `${Math.ceil(viewport?.height ?? window.innerHeight)}px`);
     root.style.setProperty("--herdr-tty-viewport-width", `${Math.ceil(viewport?.width ?? window.innerWidth)}px`);
     root.style.setProperty("--herdr-tty-viewport-top", `${Math.round(viewport?.offsetTop ?? 0)}px`);
     root.style.setProperty("--herdr-tty-viewport-left", `${Math.round(viewport?.offsetLeft ?? 0)}px`);
-    window.term?.fit?.();
   }
-  function scheduleViewportFit() {
+  function scheduleViewportUpdate() {
     cancelAnimationFrame(viewportFrame);
-    viewportFrame = requestAnimationFrame(fitVisibleViewport);
+    viewportFrame = requestAnimationFrame(updateVisibleViewport);
   }
-  viewport?.addEventListener("resize", scheduleViewportFit, { passive: true });
-  viewport?.addEventListener("scroll", scheduleViewportFit, { passive: true });
-  window.addEventListener("resize", scheduleViewportFit, { passive: true });
-  window.addEventListener("orientationchange", scheduleViewportFit, { passive: true });
-  fitVisibleViewport();
+  viewport?.addEventListener("resize", scheduleViewportUpdate, { passive: true });
+  viewport?.addEventListener("scroll", scheduleViewportUpdate, { passive: true });
+  window.addEventListener("resize", scheduleViewportUpdate, { passive: true });
+  window.addEventListener("orientationchange", scheduleViewportUpdate, { passive: true });
+  updateVisibleViewport();
 
   let pendingIOSPunctuation = null;
 
@@ -303,9 +302,10 @@
     function placePanel() {
       const view = viewBounds();
       const right = view.left + view.width - toolbar.offsetWidth;
-      const bottom = view.top + view.height - toolbar.offsetHeight - 12;
+      // Keep the terminal's last input/status rows clear of the floating panel.
+      const bottom = view.top + view.height - toolbar.offsetHeight - 72;
       x = Math.max(view.left, Math.min(x ?? right - 12, right));
-      y = Math.max(view.top + 12, Math.min(y ?? bottom, bottom));
+      y = Math.max(view.top + 12, Math.min(y ?? view.top + 12, bottom));
       toolbar.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     }
     toolbar.addEventListener("pointerdown", (event) => {
