@@ -145,16 +145,16 @@ same service. Removing it and restarting invalidates existing login cookies.
 - Long-press and drag selects terminal text; a temporary Copy button writes the
   xterm selection through Clipboard API or an HTTP-compatible copy event. If
   WebKit rejects both, the selected text is presented in a native copy field.
-- A floating panel provides ↑, ↓, →, End (scroll to bottom), Clear (Ctrl+L), Space,
+- A floating panel provides ↑, ↓, →, Clear (Ctrl+L),
   Ctrl+C, and Esc, plus a multiline draft input with separate Send and Enter
   buttons. Keyboard Enter inserts a newline in the draft. Send pastes the draft
   into the terminal and clears it, without sending a return. Panel Enter sends
   only a return to the terminal and leaves any unsent draft untouched.
-- Drag the panel by its buttons or background; drag near either side to collapse
-  it into an edge tab. Tap the tab to reopen it. The panel follows the visible
-  viewport above the keyboard and does not reserve terminal rows.
-- Space inserts at the draft caret while editing; otherwise it sends a space to
-  the terminal. Other shortcut buttons leave the draft focus intact.
+- The panel has one compact shortcut row above a multiline draft, with Send and
+  Enter stacked on its right. Drag it by its buttons or background to reposition
+  it; reaching an edge never collapses or hides it. The panel stays inside the
+  visible viewport above the keyboard and does not reserve terminal rows.
+- Shortcut buttons leave the draft focus intact.
 - Herdr's text-entry dialogs for names and new worktrees automatically focus
   the mobile paste input after the dialog appears.
 - At ttyd's reconnect prompt, tapping anywhere reconnects through ttyd's native

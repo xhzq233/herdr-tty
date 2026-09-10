@@ -69,24 +69,23 @@
 #touch-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
   position: fixed;
   top: 0;
   left: 0;
   z-index: 100;
   max-width: calc(100vw - 24px);
-  padding: 4px;
+  padding: 8px;
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 15px;
-  background: rgba(38,40,44,.86);
+  background: rgba(32,35,40,.94);
   box-shadow: 0 4px 18px rgba(0,0,0,.2);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
-#panel-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-#panel-actions { display: flex; flex-wrap: wrap; gap: 2px; }
-#panel-composer { display: flex; align-items: center; gap: 4px; padding: 2px; }
+#panel-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+#panel-actions { display: grid; grid-template-columns: repeat(3, minmax(32px, 1fr)) repeat(3, minmax(48px, 1.3fr)); gap: 4px; }
+#panel-composer { display: flex; align-items: stretch; gap: 8px; }
 #panel-input {
   flex: 1;
   width: 0;
@@ -105,16 +104,11 @@
   -webkit-user-select: text;
   touch-action: auto;
 }
-#panel-submit-actions { display: flex; flex-direction: column; gap: 4px; }
+#panel-submit-actions { display: flex; flex: 0 0 68px; flex-direction: column; gap: 4px; }
 #panel-input:focus { outline: none; border-color: #8ab4f8; }
 #panel-input::placeholder { color: #9298a3; }
-#enter-button { background: rgba(138,180,248,.15) !important; }
-#edge-tab { display: none; }
-#touch-toolbar:is([data-side="left"], [data-side="right"]) #panel-content { display: none; }
-#touch-toolbar:is([data-side="left"], [data-side="right"]) #edge-tab { display: block; min-width: 32px; padding: 0; }
-#touch-toolbar:is([data-side="left"], [data-side="right"]) { padding: 2px; opacity: .7; }
-#touch-toolbar[data-side="left"] { border-radius: 0 12px 12px 0; }
-#touch-toolbar[data-side="right"] { border-radius: 12px 0 0 12px; }
+#send-button { background: rgba(255,255,255,.06) !important; }
+#enter-button { background: rgba(138,180,248,.18) !important; }
 #touch-toolbar button {
   min-width: 44px;
   height: 44px;
@@ -130,8 +124,9 @@
 #touch-toolbar button:active { background: rgba(255,255,255,.14); }
 #touch-toolbar button:focus-visible { outline: 2px solid #8ab4f8; outline-offset: -2px; }
 
-#touch-toolbar { width: 480px; box-sizing: border-box; }
-#touch-toolbar:is([data-side="left"], [data-side="right"]) { width: auto; }
+#touch-toolbar { width: 420px; box-sizing: border-box; }
 #panel-content { flex: 1; }
 #touch-toolbar button:disabled { opacity: .42; }
 #touch-toolbar svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+#panel-actions button { min-width: 0; height: 36px; padding: 0 4px; background: rgba(255,255,255,.04); }

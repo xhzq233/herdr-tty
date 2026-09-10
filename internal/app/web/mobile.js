@@ -259,13 +259,7 @@
       ["up", "↑", "Arrow Up", () => arrow("A")],
       ["down", "↓", "Arrow Down", () => arrow("B")],
       ["right", "→", "Arrow Right", () => arrow("C")],
-      ["bottom", "End", "End", () => window.term.scrollToBottom()],
       ["clear", "Clear", "Clear", () => window.term.input("\x0c", true)],
-      ["space", "Space", "Space", () => {
-        if (document.activeElement === pasteInput) {
-          pasteInput.setRangeText(" ", pasteInput.selectionStart, pasteInput.selectionEnd, "end");
-        } else window.term.input(" ", true);
-      }],
       ["interrupt", "Ctrl+C", "Ctrl+C", () => window.term.input("\x03", true)],
     ];
     const shortcutButtons = shortcuts.map(([name, label, title, action]) => {
@@ -296,13 +290,9 @@
     composer.appendChild(submitActions);
     content.appendChild(actions);
     content.appendChild(composer);
-    const edgeTab = appendButton(toolbar, () => setDock(null), "expand");
-    edgeTab.id = "edge-tab";
-    edgeTab.setAttribute("aria-label", "Expand panel");
-    edgeTab.setAttribute("aria-controls", "panel-content");
     document.body.appendChild(toolbar);
 
-    let x, y, dockSide = null, drag = null;
+    let x, y, drag = null;
     function viewBounds() {
       return {
         left: viewport?.offsetLeft ?? 0, top: viewport?.offsetTop ?? 0,
@@ -314,17 +304,9 @@
       const view = viewBounds();
       const right = view.left + view.width - toolbar.offsetWidth;
       const bottom = view.top + view.height - toolbar.offsetHeight - 12;
-      x = dockSide === "left" ? view.left : dockSide === "right" ? right
-        : Math.max(view.left, Math.min(x ?? right - 12, right));
+      x = Math.max(view.left, Math.min(x ?? right - 12, right));
       y = Math.max(view.top + 12, Math.min(y ?? bottom, bottom));
       toolbar.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-    }
-    function setDock(side) {
-      dockSide = side;
-      toolbar.dataset.side = side || "";
-      edgeTab.textContent = side === "left" ? "›" : "‹";
-      edgeTab.setAttribute("aria-expanded", String(!side));
-      placePanel();
     }
     toolbar.addEventListener("pointerdown", (event) => {
       if (event.target === pasteInput || event.button !== 0) return;
@@ -344,18 +326,12 @@
       }
       x = drag.x + dx;
       y = drag.y + dy;
-      dockSide = null;
       placePanel();
     });
     function finishDrag(event) {
       if (!drag || event.pointerId !== drag.id) return;
       if (drag.moved) {
         suppressClickUntil = performance.now() + 300;
-        const view = viewBounds();
-        const leftGap = x - view.left;
-        const rightGap = view.left + view.width - x - toolbar.offsetWidth;
-        setDock(Math.min(leftGap, rightGap) <= 24
-          ? (leftGap < rightGap ? "left" : "right") : null);
       }
       drag = null;
     }
@@ -369,7 +345,7 @@
     viewport?.addEventListener("resize", placePanel, { passive: true });
     viewport?.addEventListener("scroll", placePanel, { passive: true });
     window.addEventListener("resize", placePanel, { passive: true });
-    setDock(null);
+    placePanel();
 
     let connectionState = "connected";
     let reconnectTimer = 0;
@@ -499,10 +475,6 @@
       subtree: true,
     });
 
-    function setVisible(visible) {
-      if (visible) setDock(null);
-    }
-
     function herdrTextDialogVisible() {
       const activeBuffer = window.term?.buffer?.active;
       if (!activeBuffer || activeBuffer.type !== "alternate") return false;
@@ -548,7 +520,7 @@
     function focusComposerForHerdrDialog() {
       const visible = herdrTextDialogVisible();
       if (visible && !textDialogVisible && document.activeElement !== pasteInput) {
-        setVisible(true);
+        placePanel();
         pasteInput.focus({ preventScroll: true });
       }
       textDialogVisible = visible;
@@ -561,7 +533,6 @@
     }
     window.setTimeout(focusComposerForHerdrDialog, 0);
 
-    return { show: () => setVisible(true) };
   }
 
   function attachTouchControls(terminal) {
@@ -614,7 +585,7 @@
     });
     window.term?.onSelectionChange?.(captureCopySelection);
 
-    const inputToolbar = createInputToolbar(terminal);
+    createInputToolbar(terminal);
 
     let startX = 0;
     let startY = 0;
@@ -682,12 +653,6 @@
       },
       { capture: true },
     );
-
-    terminal.addEventListener("click", (event) => {
-      if (event.target === copyButton) return;
-      // A terminal tap can bring the docked input panel back into view.
-      inputToolbar.show();
-    });
 
     function stopInertia() {
       if (animation) cancelAnimationFrame(animation);
