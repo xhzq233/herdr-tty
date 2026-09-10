@@ -1,4 +1,8 @@
 :root {
+  --herdr-tty-viewport-height: 100dvh;
+  --herdr-tty-viewport-width: 100vw;
+  --herdr-tty-viewport-top: 0px;
+  --herdr-tty-viewport-left: 0px;
   color-scheme: dark;
   background: #000;
 }
@@ -23,16 +27,17 @@
     width: 100%;
     min-height: 0;
     overscroll-behavior: none;
+    overflow: hidden;
+    margin: 0;
   }
 
   #terminal-container {
     position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    /* The keyboard overlays the terminal; only the floating panel follows it. */
-    height: 100lvh !important;
-    width: 100vw !important;
-    transform: translate3d(0, var(--herdr-tty-terminal-pan, 0px), 0) !important;
+    top: var(--herdr-tty-viewport-top) !important;
+    left: var(--herdr-tty-viewport-left) !important;
+    height: var(--herdr-tty-viewport-height) !important;
+    width: var(--herdr-tty-viewport-width) !important;
+    transform: none !important;
   }
 
   .xterm {

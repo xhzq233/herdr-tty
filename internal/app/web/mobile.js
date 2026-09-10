@@ -5,6 +5,25 @@
   const isIOS =
     /\b(iPad|iPhone|iPod)\b/.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let viewportFrame = 0;
+  function fitVisibleViewport() {
+    const root = document.documentElement;
+    root.style.setProperty("--herdr-tty-viewport-height", `${Math.ceil(viewport?.height ?? window.innerHeight)}px`);
+    root.style.setProperty("--herdr-tty-viewport-width", `${Math.ceil(viewport?.width ?? window.innerWidth)}px`);
+    root.style.setProperty("--herdr-tty-viewport-top", `${Math.round(viewport?.offsetTop ?? 0)}px`);
+    root.style.setProperty("--herdr-tty-viewport-left", `${Math.round(viewport?.offsetLeft ?? 0)}px`);
+    window.term?.fit?.();
+  }
+  function scheduleViewportFit() {
+    cancelAnimationFrame(viewportFrame);
+    viewportFrame = requestAnimationFrame(fitVisibleViewport);
+  }
+  viewport?.addEventListener("resize", scheduleViewportFit, { passive: true });
+  viewport?.addEventListener("scroll", scheduleViewportFit, { passive: true });
+  window.addEventListener("resize", scheduleViewportFit, { passive: true });
+  window.addEventListener("orientationchange", scheduleViewportFit, { passive: true });
+  fitVisibleViewport();
+
   let pendingIOSPunctuation = null;
 
   function isIOSVirtualPunctuation(event) {
@@ -256,10 +275,7 @@
       ["up", "↑", "Arrow Up", () => arrow("A")],
       ["down", "↓", "Arrow Down", () => arrow("B")],
       ["right", "→", "Arrow Right", () => arrow("C")],
-      ["bottom", "⤓", "Scroll to bottom", () => {
-        window.term.scrollToBottom();
-        terminal.dispatchEvent(new Event("herdr-tty-show-bottom"));
-      }],
+      ["bottom", "⤓", "Scroll to bottom", () => window.term.scrollToBottom()],
       ["clear", "Clear", "Clear", () => window.term.input("\x0c", true)],
       ["space", "Space", "Space", () => {
         if (document.activeElement === pasteInput) {
@@ -560,7 +576,7 @@
     if (terminal.dataset.herdrWebTouch === "ready") return;
     terminal.dataset.herdrWebTouch = "ready";
     // ttyd applies its font preferences after opening the terminal. Settle the
-    // initial grid once; keyboard and focus events never trigger this fitting.
+    // initial grid after those preferences arrive.
     for (const delay of [80, 250, 500]) {
       window.setTimeout(() => window.term?.fit?.(), delay);
     }
@@ -757,30 +773,7 @@
       sendMouse("mouseup", twoFingerX, twoFingerY, 2, 0);
     }
 
-    const container = document.querySelector("#terminal-container");
-    let terminalPan = 0;
-    function minimumPan() {
-      if (!container || !viewport) return 0;
-      const covered = container.offsetHeight - viewport.height - viewport.offsetTop;
-      if (covered <= 0) return 0;
-      // Leave space for the floating composer as well as the keyboard.
-      const panel = document.querySelector("#touch-toolbar");
-      return -covered - (panel?.offsetHeight || 0) - 24;
-    }
-    function setTerminalPan(value) {
-      terminalPan = Math.max(minimumPan(), Math.min(0, value));
-      container?.style.setProperty("--herdr-tty-terminal-pan", `${terminalPan}px`);
-    }
-    viewport?.addEventListener("resize", () => setTerminalPan(terminalPan), { passive: true });
-    terminal.addEventListener("herdr-tty-show-bottom", () => setTerminalPan(minimumPan()));
-
     function sendWheel(deltaY, clientX, clientY) {
-      // With a keyboard covering the fixed grid, first pan the whole terminal
-      // by hand to expose the bottom. Remaining movement scrolls Herdr history.
-      const previousPan = terminalPan;
-      setTerminalPan(terminalPan - deltaY);
-      deltaY -= previousPan - terminalPan;
-      if (Math.abs(deltaY) < 0.01) return;
       terminal.dispatchEvent(
         new WheelEvent("wheel", {
           bubbles: true,

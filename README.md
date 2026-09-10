@@ -162,14 +162,10 @@ same service. Removing it and restarting invalidates existing login cookies.
   the page with the draft preserved. Expired login opens the login page and
   restores the draft afterward; drafts are never submitted automatically.
 - A two-finger tap sends a right mouse click to Herdr.
-- Opening the keyboard leaves the terminal grid and position unchanged. The
-  terminal uses the large viewport height (`100lvh`); the keyboard overlays its
-  bottom portion. Swipe up to manually lift the covered bottom above the keyboard
-  and panel, or tap ⤓ to reveal it directly. Further swiping scrolls Herdr history.
-  Closing the keyboard returns the terminal to its normal position. Only the
-  floating panel follows `visualViewport` automatically.
-- Rotating the device or resizing the browser still fits the terminal to the
-  new screen dimensions.
+- The terminal fills the visible browser viewport, including above an open
+  keyboard. Keyboard, orientation, and window size changes refit the terminal.
+  The page does not scroll or pan; all terminal drag movement goes to Herdr's
+  wheel handling. The floating panel stays inside the visible viewport.
 - iOS virtual Chinese keyboards forward punctuation through a narrow
   `beforeinput`/`input` fallback into ttyd's public xterm instance; ordinary
   text, active composition, desktop keyboards, and Herdr shortcuts keep their
