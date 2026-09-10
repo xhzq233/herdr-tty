@@ -6,11 +6,13 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -92,6 +94,24 @@ func newAuthenticator(config Config) (*authenticator, error) {
 	secret := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, secret); err != nil {
 		return nil, fmt.Errorf("generate session secret: %w", err)
+	}
+	if config.SessionKeyFile != "" {
+		file, err := os.OpenFile(config.SessionKeyFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err == nil {
+			_, err = file.Write(secret)
+			closeErr := file.Close()
+			if err == nil {
+				err = closeErr
+			}
+		} else if errors.Is(err, os.ErrExist) {
+			secret, err = os.ReadFile(config.SessionKeyFile)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("session key file: %w", err)
+		}
+		if len(secret) != 32 {
+			return nil, fmt.Errorf("session key file must contain 32 bytes")
+		}
 	}
 	return &authenticator{
 		username: config.Username,

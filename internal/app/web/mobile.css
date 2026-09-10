@@ -32,7 +32,7 @@
     /* The keyboard overlays the terminal; only the floating panel follows it. */
     height: 100lvh !important;
     width: 100vw !important;
-    transform: none !important;
+    transform: translate3d(0, var(--herdr-tty-terminal-pan, 0px), 0) !important;
   }
 
   .xterm {

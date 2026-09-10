@@ -22,31 +22,33 @@ const (
 )
 
 type Config struct {
-	Listen      string
-	Ttyd        string
-	Herdr       string
-	CWD         string
-	MaxClients  int
-	AuthMode    string
-	Session     string
-	SessionTTL  time.Duration
-	Username    string
-	Password    string
-	HerdrArgs   []string
-	OpenBrowser bool
+	SessionKeyFile string
+	Listen         string
+	Ttyd           string
+	Herdr          string
+	CWD            string
+	MaxClients     int
+	AuthMode       string
+	Session        string
+	SessionTTL     time.Duration
+	Username       string
+	Password       string
+	HerdrArgs      []string
+	OpenBrowser    bool
 }
 
 type fileConfig struct {
-	Listen      *string  `json:"listen"`
-	Ttyd        *string  `json:"ttyd"`
-	Herdr       *string  `json:"herdr"`
-	CWD         *string  `json:"cwd"`
-	MaxClients  *int     `json:"max_clients"`
-	AuthMode    *string  `json:"auth"`
-	Session     *string  `json:"session"`
-	SessionTTL  *string  `json:"session_ttl"`
-	OpenBrowser *bool    `json:"open_browser"`
-	HerdrArgs   []string `json:"herdr_args"`
+	SessionKeyFile *string  `json:"session_key_file"`
+	Listen         *string  `json:"listen"`
+	Ttyd           *string  `json:"ttyd"`
+	Herdr          *string  `json:"herdr"`
+	CWD            *string  `json:"cwd"`
+	MaxClients     *int     `json:"max_clients"`
+	AuthMode       *string  `json:"auth"`
+	Session        *string  `json:"session"`
+	SessionTTL     *string  `json:"session_ttl"`
+	OpenBrowser    *bool    `json:"open_browser"`
+	HerdrArgs      []string `json:"herdr_args"`
 }
 
 type getenvFunc func(string) string
@@ -99,6 +101,7 @@ func ParseConfig(args []string, getenv getenvFunc, getwd getwdFunc) (Config, err
 	flags.IntVar(&config.MaxClients, "max-clients", config.MaxClients, "maximum concurrent clients")
 	flags.StringVar(&config.AuthMode, "auth", config.AuthMode, "authentication mode: auto, local, form, or native")
 	flags.StringVar(&config.Session, "session", config.Session, "named Herdr session")
+	flags.StringVar(&config.SessionKeyFile, "session-key-file", config.SessionKeyFile, "file preserving login sessions across service restarts")
 	flags.DurationVar(&config.SessionTTL, "session-ttl", config.SessionTTL, "login session lifetime")
 	flags.BoolVar(&openBrowser, "open", false, "open the web terminal in a browser")
 	flags.BoolVar(&noOpenBrowser, "no-open", false, "do not open a browser")
@@ -210,6 +213,9 @@ func loadConfigFile(path string) (fileConfig, error) {
 }
 
 func applyFileConfig(config *Config, loaded fileConfig) error {
+	if loaded.SessionKeyFile != nil {
+		config.SessionKeyFile = *loaded.SessionKeyFile
+	}
 	if loaded.Listen != nil {
 		config.Listen = *loaded.Listen
 	}

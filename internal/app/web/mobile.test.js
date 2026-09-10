@@ -170,8 +170,9 @@ function loadTouchMobile({
   let terminalFits = 0;
   let document;
 
-  function setTimer(callback) {
+  function setTimer(callback, delay = 0) {
     const timer = nextTimer++;
+    if (delay >= 1000) return timer; // Connection retries are exercised against real ttyd in browser tests.
     if (deferTimers) pendingTimers.set(timer, callback);
     else callback();
     return timer;

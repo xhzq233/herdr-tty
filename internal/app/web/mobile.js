@@ -207,6 +207,14 @@
     pasteInput.setAttribute("autocorrect", "off");
     pasteInput.setAttribute("spellcheck", "false");
     composer.appendChild(pasteInput);
+    const draftStorageKey = "herdr-tty-draft";
+    try {
+      pasteInput.value = window.sessionStorage.getItem(draftStorageKey) || "";
+      window.sessionStorage.removeItem(draftStorageKey);
+    } catch { /* Storage can be unavailable in a restricted browser context. */ }
+    function saveDraft() {
+      try { window.sessionStorage.setItem(draftStorageKey, pasteInput.value); } catch { /* Keep the in-page draft. */ }
+    }
     pasteInput.addEventListener("compositionstart", () => { composing = true; });
     pasteInput.addEventListener("compositionend", () => {
       composing = false;
@@ -248,7 +256,10 @@
       ["up", "↑", "Arrow Up", () => arrow("A")],
       ["down", "↓", "Arrow Down", () => arrow("B")],
       ["right", "→", "Arrow Right", () => arrow("C")],
-      ["bottom", "⤓", "Scroll to bottom", () => window.term.scrollToBottom()],
+      ["bottom", "⤓", "Scroll to bottom", () => {
+        window.term.scrollToBottom();
+        terminal.dispatchEvent(new Event("herdr-tty-show-bottom"));
+      }],
       ["clear", "Clear", "Clear", () => window.term.input("\x0c", true)],
       ["space", "Space", "Space", () => {
         if (document.activeElement === pasteInput) {
@@ -353,6 +364,45 @@
     setDock(null);
 
     let connectionState = "connected";
+    let reconnectTimer = 0;
+    let reconnectStartedAt = 0;
+    let checkingConnection = false;
+
+    function scheduleReconnect() {
+      clearTimeout(reconnectTimer);
+      if (connectionState !== "connected") {
+        reconnectTimer = window.setTimeout(recoverConnection, 2000);
+      }
+    }
+
+    async function recoverConnection() {
+      if (checkingConnection || document.hidden || connectionState === "connected") return;
+      checkingConnection = true;
+      try {
+        // A socket retry cannot renew an expired login. Check the gateway first.
+        const response = await fetch("/token", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+        if (response.redirected && new URL(response.url).pathname === "/_herdr/login") {
+          saveDraft();
+          window.location.assign("/_herdr/login");
+          return;
+        }
+        if (!response.ok) return;
+        if (connectionState === "reconnect-required") reconnectTerminal();
+        else if (performance.now() - reconnectStartedAt > 8000) {
+          // ttyd can stall mid-reconnect after a suspended mobile tab resumes.
+          saveDraft();
+          window.location.reload();
+        }
+      } catch { /* Stay on the terminal while the network is unavailable. */ }
+      finally {
+        checkingConnection = false;
+        scheduleReconnect();
+      }
+    }
+    window.addEventListener("online", () => { void recoverConnection(); });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) void recoverConnection();
+    });
 
     function overlayConnectionState() {
       for (const child of terminal.children) {
@@ -369,7 +419,9 @@
     }
 
     function renderConnectionState(state) {
+      if (state === "reconnecting" && connectionState !== state) reconnectStartedAt = performance.now();
       connectionState = state;
+      scheduleReconnect();
       toolbar.dataset.connectionState = state;
       for (const button of [...shortcutButtons, escapeButton]) button.disabled = state !== "connected";
       inputButton.disabled = state === "reconnecting";
@@ -423,7 +475,7 @@
     document.addEventListener(
       "click",
       (event) => {
-        if (connectionState === "reconnecting") return;
+        if (event.target === pasteInput || connectionState === "reconnecting") return;
         if (updateConnectionState() !== "reconnect-required") return;
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -705,7 +757,30 @@
       sendMouse("mouseup", twoFingerX, twoFingerY, 2, 0);
     }
 
+    const container = document.querySelector("#terminal-container");
+    let terminalPan = 0;
+    function minimumPan() {
+      if (!container || !viewport) return 0;
+      const covered = container.offsetHeight - viewport.height - viewport.offsetTop;
+      if (covered <= 0) return 0;
+      // Leave space for the floating composer as well as the keyboard.
+      const panel = document.querySelector("#touch-toolbar");
+      return -covered - (panel?.offsetHeight || 0) - 24;
+    }
+    function setTerminalPan(value) {
+      terminalPan = Math.max(minimumPan(), Math.min(0, value));
+      container?.style.setProperty("--herdr-tty-terminal-pan", `${terminalPan}px`);
+    }
+    viewport?.addEventListener("resize", () => setTerminalPan(terminalPan), { passive: true });
+    terminal.addEventListener("herdr-tty-show-bottom", () => setTerminalPan(minimumPan()));
+
     function sendWheel(deltaY, clientX, clientY) {
+      // With a keyboard covering the fixed grid, first pan the whole terminal
+      // by hand to expose the bottom. Remaining movement scrolls Herdr history.
+      const previousPan = terminalPan;
+      setTerminalPan(terminalPan - deltaY);
+      deltaY -= previousPan - terminalPan;
+      if (Math.abs(deltaY) < 0.01) return;
       terminal.dispatchEvent(
         new WheelEvent("wheel", {
           bubbles: true,

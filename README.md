@@ -132,6 +132,11 @@ Options:
 --no-open       do not open the browser
 ```
 
+To preserve login cookies across service restarts, pass
+`--session-key-file /path/to/private/session-key`. The parent directory must
+already exist; the first launch creates a private file. Reuse it only for the
+same service. Removing it and restarting invalidates existing login cookies.
+
 ## Mobile behavior
 
 - On touch devices, login clears the active field and lets the virtual-keyboard
@@ -152,14 +157,17 @@ Options:
 - Herdr's text-entry dialogs for names and new worktrees automatically focus
   the mobile paste input after the dialog appears.
 - At ttyd's reconnect prompt, tapping anywhere reconnects through ttyd's native
-  Enter-key path without clearing the draft. Further taps pause while
-  reconnecting, and a preserved draft still requires Enter after the connection
-  returns.
+  Enter-key path without clearing the draft. Failed connections retry while the
+  page is visible, including after network recovery. A stalled reconnect reloads
+  the page with the draft preserved. Expired login opens the login page and
+  restores the draft afterward; drafts are never submitted automatically.
 - A two-finger tap sends a right mouse click to Herdr.
 - Opening the keyboard leaves the terminal grid and position unchanged. The
   terminal uses the large viewport height (`100lvh`); the keyboard overlays its
-  bottom portion. Scroll the terminal manually to inspect content. Only the
-  floating panel follows `visualViewport` to remain above the keyboard.
+  bottom portion. Swipe up to manually lift the covered bottom above the keyboard
+  and panel, or tap ⤓ to reveal it directly. Further swiping scrolls Herdr history.
+  Closing the keyboard returns the terminal to its normal position. Only the
+  floating panel follows `visualViewport` automatically.
 - Rotating the device or resizing the browser still fits the terminal to the
   new screen dimensions.
 - iOS virtual Chinese keyboards forward punctuation through a narrow
